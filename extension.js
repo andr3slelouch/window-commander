@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Based on the initial version by ickyicky (https://github.com/ickyicky/window-calls),
- *
+ * This version adds the 'Activate' method to the modern extension base.
  */
 
 import Gio from 'gi://Gio'
@@ -24,62 +24,67 @@ import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js'
 
 const MR_DBUS_IFACE = `
 <node>
-   <interface name="org.gnome.Shell.Extensions.WindowCommander">
-      <method name="List">
-         <arg type="s" direction="out" name="windowList" />
-      </method>
-      <method name="GetDetails">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="s" direction="out" name="windowDetails" />
-      </method>
-      <method name="GetFrameRect">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="s" direction="out" name="frameRect" />
-      </method>
-      <method name="GetBufferRect">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="s" direction="out" name="bufferRect" />
-      </method>
-      <method name="MoveToWorkspace">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="s" direction="in" name="direction" />
-      </method>
-      <method name="MoveToMonitor">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="s" direction="in" name="direction" />
-      </method>
-      <method name="Place">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="i" direction="in" name="x" />
-         <arg type="i" direction="in" name="y" />
-         <arg type="u" direction="in" name="width" />
-         <arg type="u" direction="in" name="height" />
-      </method>
-      <method name="Move">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="i" direction="in" name="x" />
-         <arg type="i" direction="in" name="y" />
-      </method>
-      <method name="Maximize">
-         <arg type="u" direction="in" name="winid" />
-      </method>
-      <method name="Minimize">
-         <arg type="u" direction="in" name="winid" />
-      </method>
-      <method name="Unmaximize">
-         <arg type="u" direction="in" name="winid" />
-      </method>
-      <method name="Close">
-         <arg type="u" direction="in" name="winid" />
-         <arg type="b" direction="in" name="isForced" />
-      </method>
-      <method name="ToggleFullscreen">
-         <arg type="u" direction="in" name="winid" />
-      </method>
-      <method name="GetFocusedMonitorDetails">
-         <arg type="s" direction="out" name="focusedMonitorDetails" />
-      </method>
-   </interface>
+    <interface name="org.gnome.Shell.Extensions.WindowCommander">
+        <!-- ADDED: The 'Activate' method for focusing windows -->
+        <method name="Activate">
+            <arg type="u" direction="in" name="winid" />
+        </method>
+
+        <method name="List">
+            <arg type="s" direction="out" name="windowList" />
+        </method>
+        <method name="GetDetails">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="s" direction="out" name="windowDetails" />
+        </method>
+        <method name="GetFrameRect">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="s" direction="out" name="frameRect" />
+        </method>
+        <method name="GetBufferRect">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="s" direction="out" name="bufferRect" />
+        </method>
+        <method name="MoveToWorkspace">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="s" direction="in" name="direction" />
+        </method>
+        <method name="MoveToMonitor">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="s" direction="in" name="direction" />
+        </method>
+        <method name="Place">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="i" direction="in" name="x" />
+            <arg type="i" direction="in" name="y" />
+            <arg type="u" direction="in" name="width" />
+            <arg type="u" direction="in" name="height" />
+        </method>
+        <method name="Move">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="i" direction="in" name="x" />
+            <arg type="i" direction="in" name="y" />
+        </method>
+        <method name="Maximize">
+            <arg type="u" direction="in" name="winid" />
+        </method>
+        <method name="Minimize">
+            <arg type="u" direction="in" name="winid" />
+        </method>
+        <method name="Unmaximize">
+            <arg type="u" direction="in" name="winid" />
+        </method>
+        <method name="Close">
+            <arg type="u" direction="in" name="winid" />
+            <arg type="b" direction="in" name="isForced" />
+        </method>
+        <method name="ToggleFullscreen">
+            <arg type="u" direction="in" name="winid" />
+        </method>
+        <method name="GetFocusedMonitorDetails">
+            <arg type="s" direction="out" name="focusedMonitorDetails" />
+        </method>
+    </interface>
 </node>`
 
 export default class WindowCommander extends Extension {
@@ -110,6 +115,24 @@ export default class WindowCommander extends Extension {
         }
     }
 
+    // --- ADDED: Implementation for the Activate method ---
+    Activate(winid) {
+        const win = this._getWindowById(winid)?.meta_window
+        if (!win) {
+            throw new Error('Activate: Window not found')
+        }
+
+        const workspace = win.get_workspace()
+        const timestamp = global.get_current_time()
+
+        if (workspace) {
+            workspace.activate_with_focus(win, timestamp)
+        } else {
+            win.activate(timestamp)
+        }
+    }
+    // --- End of added method ---
+
     GetDetails(winid) {
         const win = this._getWindowById(winid)
         if (!win) {
@@ -117,7 +140,7 @@ export default class WindowCommander extends Extension {
         }
 
         const props = {
-            get: ['id', 'monitor', 'wm_class', 'wm_class_instance', 'maximized'],
+            get: ['id', 'monitor', 'title', 'wm_class', 'wm_class_instance', 'maximized'],
             has: ['focus'],
             booleans: new Map([
                 ['canMove', 'allows_move'],
@@ -207,15 +230,6 @@ export default class WindowCommander extends Extension {
             height,
         }
         return JSON.stringify(result)
-    }
-
-    GetTitle(winid) {
-        let win = this._getWindowById(winid)
-        if (!win) {
-            throw new Error('GetTitle: Window not found')
-        }
-
-        return win.meta_window.get_title()
     }
 
     MoveToWorkspace(winid, direction) {
@@ -395,3 +409,4 @@ export default class WindowCommander extends Extension {
         win.make_fullscreen()
     }
 }
+

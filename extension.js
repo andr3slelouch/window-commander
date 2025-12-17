@@ -31,6 +31,10 @@ const MR_DBUS_IFACE = `
       <method name="List">
          <arg type="s" direction="out" name="windowList" />
       </method>
+      <method name="GetTitle">
+         <arg type="u" direction="in" name="winid" />
+         <arg type="s" direction="out" name="title" />
+      </method>
       <method name="GetDetails">
          <arg type="u" direction="in" name="winid" />
          <arg type="s" direction="out" name="windowDetails" />
